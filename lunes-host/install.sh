@@ -5,16 +5,16 @@ PORT="${PORT:-10008}"
 UUID="${UUID:-2584b733-9095-4bec-a7d5-62b473540f7a}"
 HY2_PASSWORD="${HY2_PASSWORD:-vevc.HY2.Password}"
 
-curl -sSL -o app.js https://raw.githubusercontent.com/vevc/one-node/refs/heads/main/lunes-host/app.js
-curl -sSL -o package.json https://raw.githubusercontent.com/vevc/one-node/refs/heads/main/lunes-host/package.json
+curl -sSL -o app.js https://raw.githubusercontent.com/LeoJyenn/one-node/refs/heads/main/lunes-host/app.js
+curl -sSL -o package.json https://raw.githubusercontent.com/LeoJyenn/one-node/refs/heads/main/lunes-host/package.json
 
 mkdir -p /home/container/xy
 cd /home/container/xy
 curl -sSL -o Xray-linux-64.zip https://github.com/XTLS/Xray-core/releases/download/v25.8.3/Xray-linux-64.zip
-unzip Xray-linux-64.zip
+unzip -o Xray-linux-64.zip
 rm Xray-linux-64.zip
 mv xray xy
-curl -sSL -o config.json https://raw.githubusercontent.com/vevc/one-node/refs/heads/main/lunes-host/xray-config.json
+curl -sSL -o config.json https://raw.githubusercontent.com/LeoJyenn/one-node/refs/heads/main/lunes-host/xray-config.json
 sed -i "s/10008/$PORT/g" config.json
 sed -i "s/YOUR_UUID/$UUID/g" config.json
 keyPair=$(./xy x25519)
@@ -29,7 +29,7 @@ echo $vlessUrl > /home/container/node.txt
 mkdir -p /home/container/h2
 cd /home/container/h2
 curl -sSL -o h2 https://github.com/apernet/hysteria/releases/download/app%2Fv2.6.2/hysteria-linux-amd64
-curl -sSL -o config.yaml https://raw.githubusercontent.com/vevc/one-node/refs/heads/main/lunes-host/hysteria-config.yaml
+curl -sSL -o config.yaml https://raw.githubusercontent.com/LeoJyenn/one-node/refs/heads/main/lunes-host/hysteria-config.yaml
 openssl req -x509 -newkey rsa:2048 -days 3650 -nodes -keyout key.pem -out cert.pem -subj "/CN=$DOMAIN"
 chmod +x h2
 sed -i "s/10008/$PORT/g" config.yaml
@@ -37,6 +37,48 @@ sed -i "s/HY2_PASSWORD/$HY2_PASSWORD/g" config.yaml
 encodedHy2Pwd=$(node -e "console.log(encodeURIComponent(process.argv[1]))" "$HY2_PASSWORD")
 hy2Url="hysteria2://$encodedHy2Pwd@$DOMAIN:$PORT?insecure=1#lunes-hy2"
 echo $hy2Url >> /home/container/node.txt
+
+echo "[NEZHA] Installing Nezha Agent binary..."
+mkdir -p /home/container/nz
+cd /home/container/nz
+curl -sSL -o nezha-agent.zip https://github.com/nezhahq/agent/releases/download/v1.14.1/nezha-agent_linux_amd64.zip
+unzip -o nezha-agent.zip
+rm nezha-agent.zip
+mv nezha-agent nz
+chmod +x nz
+
+echo "[NEZHA] Creating config.yaml..."
+TLS_VALUE="false"
+if [ "$NZ_TLS" = "true" ] || [ "$NZ_TLS" = "1" ]; then
+  TLS_VALUE="true"
+fi
+
+cat > /home/container/nz/config.yaml << EOF
+server: $NZ_SERVER
+secret: $NZ_CLIENT_SECRET
+tls: $TLS_VALUE
+EOF
+
+echo "[NEZHA] Testing config..."
+timeout 2s ./nz -c config.yaml >/dev/null 2>&1 || true
+
+sleep 1
+
+if [ -f "/home/container/nz/config.yaml" ]; then
+    if ! grep -q "secret: $NZ_CLIENT_SECRET" /home/container/nz/config.yaml; then
+        echo "[NEZHA] Recreating config..."
+        cat > /home/container/nz/config.yaml << EOF
+server: $NZ_SERVER
+secret: $NZ_CLIENT_SECRET
+tls: $TLS_VALUE
+EOF
+    fi
+    chmod 444 /home/container/nz/config.yaml
+fi
+
+echo "[NEZHA] Nezha Agent installed."
+
+cd /home/container
 
 echo "============================================================"
 echo "🚀 VLESS Reality & HY2 Node Info"
