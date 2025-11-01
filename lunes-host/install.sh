@@ -75,7 +75,7 @@ secret: $NZ_CLIENT_SECRET
 tls: $TLS_VALUE
 EOF
         fi
-        chmod 444 /home/container/nz/config.yaml
+        
     fi
 
     echo "[NEZHA] Nezha Agent installed."
