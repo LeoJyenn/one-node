@@ -38,45 +38,50 @@ encodedHy2Pwd=$(node -e "console.log(encodeURIComponent(process.argv[1]))" "$HY2
 hy2Url="hysteria2://$encodedHy2Pwd@$DOMAIN:$PORT?insecure=1#lunes-hy2"
 echo $hy2Url >> /home/container/node.txt
 
-echo "[NEZHA] Installing Nezha Agent binary..."
-mkdir -p /home/container/nz
-cd /home/container/nz
-curl -sSL -o nezha-agent.zip https://github.com/nezhahq/agent/releases/download/v1.14.1/nezha-agent_linux_amd64.zip
-unzip -o nezha-agent.zip
-rm nezha-agent.zip
-mv nezha-agent nz
-chmod +x nz
+# 判断是否安装哪吒监控
+if [ -n "$NZ_SERVER" ] && [ -n "$NZ_CLIENT_SECRET" ]; then
+    echo "[NEZHA] Installing Nezha Agent binary..."
+    mkdir -p /home/container/nz
+    cd /home/container/nz
+    curl -sSL -o nezha-agent.zip https://github.com/nezhahq/agent/releases/download/v1.14.1/nezha-agent_linux_amd64.zip
+    unzip -o nezha-agent.zip
+    rm nezha-agent.zip
+    mv nezha-agent nz
+    chmod +x nz
 
-echo "[NEZHA] Creating config.yaml..."
-TLS_VALUE="false"
-if [ "$NZ_TLS" = "true" ] || [ "$NZ_TLS" = "1" ]; then
-  TLS_VALUE="true"
-fi
-
-cat > /home/container/nz/config.yaml << EOF
-server: $NZ_SERVER
-secret: $NZ_CLIENT_SECRET
-tls: $TLS_VALUE
-EOF
-
-echo "[NEZHA] Testing config..."
-timeout 2s ./nz -c config.yaml >/dev/null 2>&1 || true
-
-sleep 1
-
-if [ -f "/home/container/nz/config.yaml" ]; then
-    if ! grep -q "secret: $NZ_CLIENT_SECRET" /home/container/nz/config.yaml; then
-        echo "[NEZHA] Recreating config..."
-        cat > /home/container/nz/config.yaml << EOF
-server: $NZ_SERVER
-secret: $NZ_CLIENT_SECRET
-tls: $TLS_VALUE
-EOF
+    echo "[NEZHA] Creating config.yaml..."
+    TLS_VALUE="false"
+    if [ "$NZ_TLS" = "true" ] || [ "$NZ_TLS" = "1" ]; then
+      TLS_VALUE="true"
     fi
-    chmod 444 /home/container/nz/config.yaml
-fi
 
-echo "[NEZHA] Nezha Agent installed."
+    cat > /home/container/nz/config.yaml << EOF
+server: $NZ_SERVER
+secret: $NZ_CLIENT_SECRET
+tls: $TLS_VALUE
+EOF
+
+    echo "[NEZHA] Testing config..."
+    timeout 2s ./nz -c config.yaml >/dev/null 2>&1 || true
+
+    sleep 1
+
+    if [ -f "/home/container/nz/config.yaml" ]; then
+        if ! grep -q "secret: $NZ_CLIENT_SECRET" /home/container/nz/config.yaml; then
+            echo "[NEZHA] Recreating config..."
+            cat > /home/container/nz/config.yaml << EOF
+server: $NZ_SERVER
+secret: $NZ_CLIENT_SECRET
+tls: $TLS_VALUE
+EOF
+        fi
+        chmod 444 /home/container/nz/config.yaml
+    fi
+
+    echo "[NEZHA] Nezha Agent installed."
+else
+    echo "[NEZHA] Skip installation due to missing NZ_SERVER or NZ_CLIENT_SECRET."
+fi
 
 cd /home/container
 
