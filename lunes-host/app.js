@@ -1,6 +1,7 @@
 const { spawn } = require("child_process");
 const fs = require('fs');
 
+// 定义应用列表
 const apps = [
   {
     name: "xy",
@@ -11,13 +12,17 @@ const apps = [
     name: "h2",
     binaryPath: "/home/container/h2/h2", 
     args: ["server", "-c", "/home/container/h2/config.yaml"]
-  },
-  {
+  }
+];
+
+// 如果哪吒监控的配置文件存在，则加入启动列表
+if (fs.existsSync("/home/container/nz/config.yaml")) {
+  apps.push({
     name: "nz",
     binaryPath: "/home/container/nz/nz",
     args: ["-c", "/home/container/nz/config.yaml"]
-  }
-];
+  });
+}
 
 function runProcess(app) {
   const child = spawn(app.binaryPath, app.args, { stdio: "inherit" });
